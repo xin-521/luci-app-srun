@@ -17,6 +17,25 @@ APK=/path/to/apk PO2LMO=/path/to/po2lmo sh scripts/build-apk.sh
 SRUN_VER=0.6.2-r2 SRUN_ARCH=aarch64_generic sh scripts/build-apk.sh
 ```
 
+### `srun` 二进制从哪里来
+
+本仓库**不包含** Rust 源码（属上游 `zu1k/srun`）。`build-apk.sh` 按下列顺序定位待打包的二进制：
+
+1. `SRUN_BIN=/path/to/srun`（或 `BIN=...`）显式指定；
+2. `prebuilt/srun-$SRUN_ARCH`（仓库内自带，目录已 gitignore）；
+3. `../target/aarch64-unknown-linux-musl/release/srun`（恰好与上游 srun 检出同级时）。
+
+均不存在则报错并提示自行交叉编译：
+
+```sh
+cargo build --release --target aarch64-unknown-linux-musl   # 需在 srun 源码目录，带 AUTH_SERVER_IP=...
+# 或
+SRUN_BIN=~/srun-aarch64 sh scripts/build-apk.sh
+```
+
+> 因 `~/.config/git/ignore` 默认含 `dist/`，仓库根 `.gitignore` 用 `!dist/` 显式重新纳入了
+> `dist/`（预编译 `.apk` 产物）。若不希望仓库里带二进制，去掉该行即可。
+
 脚本会：暂存文件 → `apk mkpkg` → `apk verify --allow-untrusted` → 生成
 `APKINDEX.tar.gz` → 输出 `sha256sums`。
 
