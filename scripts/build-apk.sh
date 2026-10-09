@@ -19,17 +19,18 @@ DIST=$APP/dist
 SRUN_ARCH=${SRUN_ARCH:-aarch64_cortex-a53}
 
 # Where the cross-compiled srun binary comes from, in order:
-#   1. $SRUN_BIN / $BIN            (explicit)
-#   2. $APP/prebuilt/srun-$SRUN_ARCH (vendored in this repo)
-#   3. $ROOT/target/aarch64-unknown-linux-musl/release/srun (sibling upstream build)
+#   1. $SRUN_BIN (or $BIN)             - explicit
+#   2. $APP/prebuilt/srun-$SRUN_ARCH   - vendored in this repo
+#   3. $ROOT/target/aarch64-unknown-linux-musl/release/srun - sibling upstream build
 PREBUILT=$APP/prebuilt/srun-$SRUN_ARCH
-BIN=${SRUN_BIN:-${BIN:-}}
-if [ -z "$BIN" ]; then
-	if [ -f "$PREBUILT" ]; then
-		BIN=$PREBUILT
-	else
-		BIN=$ROOT/target/aarch64-unknown-linux-musl/release/srun
-	fi
+if [ -n "${SRUN_BIN:-}" ]; then
+	BIN=$SRUN_BIN
+elif [ -n "${BIN:-}" ]; then
+	:
+elif [ -f "$PREBUILT" ]; then
+	BIN=$PREBUILT
+else
+	BIN=$ROOT/target/aarch64-unknown-linux-musl/release/srun
 fi
 
 SRUN_VER=${SRUN_VER:-0.6.2-r2}
