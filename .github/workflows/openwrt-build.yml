@@ -156,6 +156,11 @@ jobs:
           make defconfig
           grep -E '^(CONFIG_TARGET_|CONFIG_PACKAGE_luci-app-srun|CONFIG_PACKAGE_luci-i18n-srun)' .config
 
+      - name: Build host tools and toolchain
+        run: |
+          cd openwrt
+          make -j"$(nproc)" tools/install toolchain/install
+
       - name: Build packages
         run: |
           cd openwrt
