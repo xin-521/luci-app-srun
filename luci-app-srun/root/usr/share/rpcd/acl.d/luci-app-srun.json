@@ -1,0 +1,30 @@
+{
+	"luci-app-srun": {
+		"description": "Grant access to the SRun LuCI application",
+		"read": {
+			"uci": [ "srun" ],
+			"ubus": {
+				"service": [ "list" ],
+				"log": [ "read" ],
+				"network.interface": [ "dump", "status" ],
+				"network.device": [ "status" ],
+				"luci.srun": [ "status", "netif", "tail_log" ]
+			},
+			"file": {
+				"/etc/init.d/srun": [ "exec" ],
+				"/usr/bin/srun": [ "exec" ],
+				"/var/run/srun/state.tsv": [ "read" ]
+			}
+		},
+		"write": {
+			"uci": [ "srun" ],
+			"ubus": {
+				"luci.srun": [ "action", "login", "logout" ]
+			},
+			"file": {
+				"/etc/init.d/srun": [ "exec" ],
+				"/usr/bin/srun": [ "exec" ]
+			}
+		}
+	}
+}

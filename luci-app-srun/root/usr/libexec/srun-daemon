@@ -1,0 +1,91 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+#
+# srun supervisor: periodically (re)authenticate every enabled account and
+# record the result into /var/run/srun/state.tsv for the LuCI status view.
+#
+# Success is detected from the observed "access_token" in srun output, because
+# upstream srun exits 0 even on a failed login.
+
+. /lib/functions.sh
+
+RUN_DIR=/var/run/srun
+STATE="$RUN_DIR/state.tsv"
+
+config_load srun
+
+config_get BINARY main binary /usr/bin/srun
+config_get INTERVAL main interval 30
+config_get LOG_LEVEL main log_level info
+
+[ -x "$BINARY" ] || { logger -t srun -p user.err "binary not executable: $BINARY"; exit 1; }
+
+running=1
+trap 'running=0' TERM INT
+
+level_num() {
+	case "$1" in
+		error) echo 1 ;;
+		warn)  echo 2 ;;
+		info)  echo 3 ;;
+		debug) echo 4 ;;
+		*)     echo 3 ;;
+	esac
+}
+MAX_LEVEL=$(level_num "$LOG_LEVEL")
+
+log() {
+	local lvl="${1:-user.info}"
+	[ "$(level_num "${lvl#user.}")" -le "$MAX_LEVEL" ] || return 0
+	logger -t srun -p "$lvl" "$2"
+}
+
+resolve_ip() {
+	[ -n "$1" ] || return 1
+	ip -o -4 addr show dev "$1" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1
+}
+
+write_state() {
+	# sid username ip ok message
+	printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+		"$1" "$2" "$3" "$4" "$(date +%s)" "$5" >> "$STATE.tmp"
+}
+
+while [ "$running" = 1 ]; do
+	: > "$STATE.tmp"
+	/usr/libexec/srun-generate-config || log user.warn "config generation failed"
+
+	found=0
+	for f in "$RUN_DIR"/user-*.json; do
+		[ -e "$f" ] || continue
+		found=1
+
+		sid=$(basename "$f" .json); sid=${sid#user-}
+		username=$(uci -q get "srun.$sid.username")
+		ip=$(uci -q get "srun.$sid.ip")
+		[ -n "$ip" ] || ip=$(resolve_ip "$(uci -q get "srun.$sid.if_name")")
+		[ -n "$ip" ] || ip="-"
+
+		out=$("$BINARY" login -c "$f" 2>&1)
+		rc=$?
+
+		if echo "$out" | grep -qE 'access_token: "[^"]+"'; then
+			write_state "$sid" "$username" "$ip" 1 "ok"
+			log user.info "login [$sid] ok (rc=$rc ip=$ip)"
+		else
+			write_state "$sid" "$username" "$ip" 0 "login failed"
+			log user.warn "login [$sid] failed (rc=$rc ip=$ip)"
+			log user.debug "output: $(echo "$out" | tr '\n' '|')"
+		fi
+		[ "$running" = 1 ] || break
+	done
+
+	[ "$found" = 1 ] || log user.info "no enabled accounts configured"
+
+	mv "$STATE.tmp" "$STATE"
+	[ "$running" = 1 ] || break
+
+	# Interruptible sleep so stop is immediate.
+	sleep "$INTERVAL" &
+	wait $!
+done

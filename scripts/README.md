@@ -1,0 +1,52 @@
+# scripts
+
+## build-apk.sh
+
+为 armv8 构建 OpenWrt `.apk` 包（`srun` + `luci-app-srun`）到 `../dist/`。
+
+依赖两个**宿主机工具**（在 Windows/MSYS2 上自行构建，见下）：
+
+- `apk` —— apk-tools 3（`apk mkpkg` / `apk mkndx` / `apk verify`）。
+- `po2lmo` —— LuCI 的 `.po → .lmo` 编译器（可省略，省略则不含中文翻译）。
+
+```sh
+# 默认从 /c/msys64/tmp/... 读取工具，可用环境变量覆盖
+APK=/path/to/apk PO2LMO=/path/to/po2lmo sh scripts/build-apk.sh
+
+# 覆盖版本/架构
+SRUN_VER=0.6.2-r2 SRUN_ARCH=aarch64_generic sh scripts/build-apk.sh
+```
+
+脚本会：暂存文件 → `apk mkpkg` → `apk verify --allow-untrusted` → 生成
+`APKINDEX.tar.gz` → 输出 `sha256sums`。
+
+## 宿主机工具构建备忘（MSYS2）
+
+**apk-tools 3**（原生 msys 构建）：
+
+```sh
+pacman -S --needed gcc make pkgconf openssl-devel zlib-devel lua
+# 取源码
+curl -L https://gitlab.alpinelinux.org/alpine/apk-tools/-/archive/master/apk-tools-master.tar.gz | tar xz
+cd apk-tools-master
+# MSYS2/Cygwin 兼容补丁：
+#  - src/Makefile: $(obj)/libapk.so 增加前置依赖 $(libapk_so)
+#  - src/io.c: fgetpwent/fgetgrent 分支追加 && !defined(__CYGWIN__)
+#  - portability/cygwin-compat.h: memfd_create→-1，MFD_*→0
+#  - src/app_mkpkg.c: 文件属主强制 root（fakeroot 等价）
+make -j4 CRYPTO=openssl URL_BACKEND=wget ZSTD=no LUA=no \
+     "CFLAGS_EXTRA=-include $PWD/portability/cygwin-compat.h" \
+     "LIBS_apk=-lapk -lssl -lcrypto -lz"
+# 产物：src/apk.exe
+```
+
+**po2lmo**（LuCI）：
+
+```sh
+# 需要 luci 的 modules/luci-base/src/{po2lmo.c,lib/lmo.c,lib/lmo.h,lib/plural_formula.y,contrib/lemon.c,contrib/lempar.c}
+gcc -std=gnu17 -o lemon contrib/lemon.c
+./lemon -q lib/plural_formula.y
+gcc -O2 -I. -Ilib -o po2lmo po2lmo.c lib/lmo.c lib/plural_formula.c
+```
+
+以上两步只需在首次构建前做一次。

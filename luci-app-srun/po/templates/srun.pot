@@ -1,0 +1,180 @@
+# Translation template for luci-app-srun.
+# Regenerate with: ./build/i18n-scan.pl applications/luci-app-srun
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "SRun"
+msgstr ""
+
+msgid "Overview"
+msgstr ""
+
+msgid "Configuration"
+msgstr ""
+
+msgid "Log"
+msgstr ""
+
+msgid "SRun Portal Authentication"
+msgstr ""
+
+msgid "Configure the SRun/深澜 portal client. The running service is reloaded on save & apply."
+msgstr ""
+
+msgid "Global settings"
+msgstr ""
+
+msgid "Enable service"
+msgstr ""
+
+msgid "Portal server"
+msgstr ""
+
+msgid "Base URL including scheme, e.g. http://10.0.0.1"
+msgstr ""
+
+msgid "srun binary path"
+msgstr ""
+
+msgid "Auto detect authorized IP"
+msgstr ""
+
+msgid "Let the portal decide which IP to authorize (single-dial)."
+msgstr ""
+
+msgid "Strict bind source IP"
+msgstr ""
+
+msgid "Enable double stack"
+msgstr ""
+
+msgid "Retry delay (ms)"
+msgstr ""
+
+msgid "Retry times"
+msgstr ""
+
+msgid "Re-check interval (s)"
+msgstr ""
+
+msgid "AC ID"
+msgstr ""
+
+msgid "Access controller id, deployment specific."
+msgstr ""
+
+msgid "Auth type"
+msgstr ""
+
+msgid "Parameter n"
+msgstr ""
+
+msgid "Reported OS"
+msgstr ""
+
+msgid "Reported hostname"
+msgstr ""
+
+msgid "Trigger interface"
+msgstr ""
+
+msgid "Logical interface whose link-up triggers a re-login."
+msgstr ""
+
+msgid "Accounts"
+msgstr ""
+
+msgid "One section per account/interface (multi-dial supported)."
+msgstr ""
+
+msgid "Enabled"
+msgstr ""
+
+msgid "Username"
+msgstr ""
+
+msgid "Operator suffix may be required, e.g. @cmcc."
+msgstr ""
+
+msgid "Password"
+msgstr ""
+
+msgid "IP address"
+msgstr ""
+
+msgid "IP"
+msgstr ""
+
+msgid "Interface"
+msgstr ""
+
+msgid "Real device or logical interface; leave empty when using an explicit IP."
+msgstr ""
+
+msgid "Comment"
+msgstr ""
+
+msgid "Service"
+msgstr ""
+
+msgid "State"
+msgstr ""
+
+msgid "Running"
+msgstr ""
+
+msgid "Stopped"
+msgstr ""
+
+msgid "Restart"
+msgstr ""
+
+msgid "Start"
+msgstr ""
+
+msgid "Stop"
+msgstr ""
+
+msgid "Online"
+msgstr ""
+
+msgid "Offline"
+msgstr ""
+
+msgid "Login"
+msgstr ""
+
+msgid "Logout"
+msgstr ""
+
+msgid "Actions"
+msgstr ""
+
+msgid "Last check"
+msgstr ""
+
+msgid "Status"
+msgstr ""
+
+msgid "Section"
+msgstr ""
+
+msgid "Service log"
+msgstr ""
+
+msgid "No log entries."
+msgstr ""
+
+msgid "No accounts configured."
+msgstr ""
+
+msgid "Action \"%s\" issued."
+msgstr ""
+
+msgid "Done."
+msgstr ""
+
+msgid "Refresh"
+msgstr ""

@@ -1,0 +1,24 @@
+#!/bin/sh
+# Create the /etc/config/srun skeleton idempotently (LuCI app uci-defaults).
+[ -f /etc/config/srun ] || touch /etc/config/srun
+
+uci -q get srun.main >/dev/null 2>&1 || uci set srun.main=srun
+uci -q set srun.main.enabled='1'
+uci -q set srun.main.binary='/usr/bin/srun'
+uci -q set srun.main.detect_ip='1'
+uci -q set srun.main.strict_bind='0'
+uci -q set srun.main.double_stack='0'
+uci -q set srun.main.retry_delay='1000'
+uci -q set srun.main.retry_times='3'
+uci -q set srun.main.n='200'
+uci -q set srun.main.type='1'
+uci -q set srun.main.acid='12'
+uci -q set srun.main.os='Windows 10'
+uci -q set srun.main.name='Windows'
+uci -q set srun.main.interval='30'
+uci -q set srun.main.check_interval='60'
+uci -q set srun.main.trigger_iface='wan'
+uci -q set srun.main.log_level='info'
+uci -q commit srun
+
+exit 0

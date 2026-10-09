@@ -1,0 +1,31 @@
+# Default: normalize text, and never hand Windows CRLF to a device.
+* text=auto
+
+# Scripts and data files that end up on the router must stay LF.
+*.sh        text eol=lf
+*.uc        text eol=lf
+js           text eol=lf
+*.json      text eol=lf
+Makefile    text eol=lf
+*.mk        text eol=lf
+srun-generate-config text eol=lf
+srun-daemon          text eol=lf
+luci.srun            text eol=lf
+srun                 text eol=lf
+80_srun              text eol=lf
+*.po        text eol=lf
+*.pot       text eol=lf
+*.md        text eol=lf
+.gitignore  text eol=lf
+.gitattributes text eol=lf
+
+# Windows-only helpers (must keep CRLF to run under cmd.exe)
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+
+# Binaries
+*.apk       binary
+*.tar.gz    binary
+*.lmo       binary
+*.gz        binary
+prebuilt/*  binary

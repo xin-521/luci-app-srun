@@ -1,0 +1,36 @@
+{
+	"admin/services/srun": {
+		"title": "SRun",
+		"order": 40,
+		"action": {
+			"type": "firstchild"
+		},
+		"depends": {
+			"acl": [ "luci-app-srun" ]
+		}
+	},
+	"admin/services/srun/overview": {
+		"title": "Overview",
+		"order": 1,
+		"action": {
+			"type": "view",
+			"path": "srun/overview"
+		}
+	},
+	"admin/services/srun/config": {
+		"title": "Configuration",
+		"order": 2,
+		"action": {
+			"type": "view",
+			"path": "srun/config"
+		}
+	},
+	"admin/services/srun/log": {
+		"title": "Log",
+		"order": 3,
+		"action": {
+			"type": "view",
+			"path": "srun/log"
+		}
+	}
+}

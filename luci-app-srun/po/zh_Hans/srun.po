@@ -1,0 +1,181 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: luci-app-srun\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: zh_Hans\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "SRun"
+msgstr "SRun"
+
+msgid "Overview"
+msgstr "概览"
+
+msgid "Configuration"
+msgstr "配置"
+
+msgid "Log"
+msgstr "日志"
+
+msgid "SRun Portal Authentication"
+msgstr "SRun 校园网 Portal 认证"
+
+msgid "Configure the SRun/深澜 portal client. The running service is reloaded on save & apply."
+msgstr "配置 SRun/深澜 Portal 客户端；保存并应用后将重载运行中的服务。"
+
+msgid "Global settings"
+msgstr "全局设置"
+
+msgid "Enable service"
+msgstr "启用服务"
+
+msgid "Portal server"
+msgstr "Portal 服务器"
+
+msgid "Base URL including scheme, e.g. http://10.0.0.1"
+msgstr "含协议的基址，例如 http://10.0.0.1"
+
+msgid "srun binary path"
+msgstr "srun 二进制路径"
+
+msgid "Auto detect authorized IP"
+msgstr "自动探测授权 IP"
+
+msgid "Let the portal decide which IP to authorize (single-dial)."
+msgstr "由 Portal 决定授权哪个 IP（单拨场景）。"
+
+msgid "Strict bind source IP"
+msgstr "严格绑定源 IP"
+
+msgid "Enable double stack"
+msgstr "启用双栈"
+
+msgid "Retry delay (ms)"
+msgstr "重试间隔（毫秒）"
+
+msgid "Retry times"
+msgstr "重试次数"
+
+msgid "Re-check interval (s)"
+msgstr "巡检间隔（秒）"
+
+msgid "AC ID"
+msgstr "AC ID"
+
+msgid "Access controller id, deployment specific."
+msgstr "接入控制器 ID，随部署而异。"
+
+msgid "Auth type"
+msgstr "认证类型"
+
+msgid "Parameter n"
+msgstr "参数 n"
+
+msgid "Reported OS"
+msgstr "上报操作系统"
+
+msgid "Reported hostname"
+msgstr "上报主机名"
+
+msgid "Trigger interface"
+msgstr "触发接口"
+
+msgid "Logical interface whose link-up triggers a re-login."
+msgstr "该逻辑接口 up 时触发重新登录。"
+
+msgid "Accounts"
+msgstr "账号"
+
+msgid "One section per account/interface (multi-dial supported)."
+msgstr "每个账号/接口一个配置节（支持多拨）。"
+
+msgid "Enabled"
+msgstr "启用"
+
+msgid "Username"
+msgstr "用户名"
+
+msgid "Operator suffix may be required, e.g. @cmcc."
+msgstr "可能需要在用户名后追加运营商后缀，例如 @cmcc。"
+
+msgid "Password"
+msgstr "密码"
+
+msgid "IP address"
+msgstr "IP 地址"
+
+msgid "IP"
+msgstr "IP"
+
+msgid "Interface"
+msgstr "接口"
+
+msgid "Real device or logical interface; leave empty when using an explicit IP."
+msgstr "要绑定/授权的真实网卡或逻辑接口；使用固定 IP 时可留空。"
+
+msgid "Comment"
+msgstr "备注"
+
+msgid "Service"
+msgstr "服务"
+
+msgid "State"
+msgstr "状态"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "Stopped"
+msgstr "已停止"
+
+msgid "Restart"
+msgstr "重启"
+
+msgid "Start"
+msgstr "启动"
+
+msgid "Stop"
+msgstr "停止"
+
+msgid "Online"
+msgstr "在线"
+
+msgid "Offline"
+msgstr "离线"
+
+msgid "Login"
+msgstr "登录"
+
+msgid "Logout"
+msgstr "注销"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Last check"
+msgstr "最近检查"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Section"
+msgstr "配置节"
+
+msgid "Service log"
+msgstr "服务日志"
+
+msgid "No log entries."
+msgstr "暂无日志。"
+
+msgid "No accounts configured."
+msgstr "未配置账号。"
+
+msgid "Action \"%s\" issued."
+msgstr "已执行操作“%s”。"
+
+msgid "Done."
+msgstr "完成。"
+
+msgid "Refresh"
+msgstr "刷新"

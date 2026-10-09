@@ -1,0 +1,202 @@
+#!/bin/sh
+# rpcd plugin -> ubus object "luci.srun" (shell variant, no rpcd-mod-ucode needed).
+. /usr/share/libubox/jshn.sh
+
+RUN_DIR=/var/run/srun
+STATE="$RUN_DIR/state.tsv"
+
+# ---------------- helpers ----------------
+
+run_json() { # command...
+	local out rc
+	out="$("$@" 2>&1)"; rc=$?
+	json_init
+	json_add_int code "$rc"
+	json_add_string stdout "$out"
+	json_add_string stderr ""
+	json_dump
+}
+
+do_status() {
+	json_init
+
+	local enabled=1
+	[ "$(uci -q get srun.main.enabled)" = "0" ] && enabled=0
+	json_add_boolean enabled "$enabled"
+
+	local running=0
+	if command -v ubus >/dev/null 2>&1; then
+		ubus call service list '{"name":"srun"}' 2>/dev/null | grep -q '"running":[[:space:]]*true' && running=1
+	fi
+	json_add_boolean running "$running"
+
+	json_add_array users
+	if [ -f "$STATE" ]; then
+		local sid username ip ok ts msg
+		while IFS='	' read -r sid username ip ok ts msg; do
+			[ -n "$sid" ] || continue
+			json_add_object
+			json_add_string sid "$sid"
+			json_add_string username "$username"
+			json_add_string ip "$ip"
+			json_add_boolean ok "${ok:-0}"
+			json_add_int ts "${ts:-0}"
+			json_add_string msg "$msg"
+			json_close_object
+		done < "$STATE"
+	fi
+	json_close_array
+
+	json_add_array interfaces
+	json_close_array
+
+	json_dump
+}
+
+do_tail_log() {
+	# NOTE: never reuse LINES/ROWS here - those are terminal-size shell vars
+	# and `tail -n 0`/`tail -n ""` would silently yield nothing.
+	json_get_var SRUN_LOG_LINES lines
+	case "$SRUN_LOG_LINES" in
+		''|*[!0-9]*) SRUN_LOG_LINES=200 ;;
+	esac
+	[ "$SRUN_LOG_LINES" -ge 1 ] 2>/dev/null || SRUN_LOG_LINES=200
+	[ "$SRUN_LOG_LINES" -gt 5000 ] && SRUN_LOG_LINES=5000
+
+	local out l
+	# busybox logread supports -e; avoid GNU-only grep flags such as -a
+	out="$(logread -e srun 2>/dev/null | tail -n "$SRUN_LOG_LINES")"
+	[ -n "$out" ] || out="$(logread 2>/dev/null | grep srun | tail -n "$SRUN_LOG_LINES")"
+
+	json_init
+	json_add_array lines
+	while IFS= read -r l; do
+		json_add_string "" "$l"
+	done <<EOF
+$out
+EOF
+	json_close_array
+	json_dump
+}
+
+do_netif() {
+	local d n
+	json_init
+	json_add_array devices
+	for d in /sys/class/net/*; do
+		[ -e "$d" ] || continue
+		d="${d##*/}"
+		[ "$d" = "lo" ] && continue
+		[ -n "$d" ] && json_add_string "" "$d"
+	done
+	json_close_array
+
+	json_add_array interfaces
+	for n in $(uci -q show network 2>/dev/null | sed -n 's/^network\.\([A-Za-z0-9_.-]*\)=interface$/\1/p'); do
+		json_add_string "" "$n"
+	done
+	json_close_array
+	json_dump
+}
+
+do_action() {
+	json_get_var ACT action
+	[ -n "$ACT" ] || ACT=restart
+	run_json /etc/init.d/srun "$ACT"
+}
+
+login_user() {
+	local sid="$1"
+	[ -n "$SID" ] && [ "$sid" != "$SID" ] && return
+	[ "$(uci -q get "srun.$sid.enabled")" = "0" ] && return
+	local f="$RUN_DIR/user-$sid.json"
+	[ -f "$f" ] || return
+	local out rc
+	out="$(/usr/bin/srun login -c "$f" 2>&1)"; rc=$?
+	json_add_object
+	json_add_int code "$rc"
+	json_add_string stdout "$out"
+	json_close_object
+}
+
+do_login() {
+	json_get_var SID sid
+	[ -d "$RUN_DIR" ] || /usr/libexec/srun-generate-config
+	json_init
+	json_add_int code 0
+	json_add_array results
+	. /lib/functions.sh
+	config_load srun
+	config_foreach login_user login
+	json_close_array
+	json_dump
+}
+
+logout_user() {
+	local sid="$1"
+	[ -n "$SID" ] && [ "$sid" != "$SID" ] && return
+	local user server acid ip ifn out rc cmd
+	user="$(uci -q get "srun.$sid.username")"
+	server="$(uci -q get srun.main.server)"
+	acid="$(uci -q get srun.main.acid)"
+	ip="$(uci -q get "srun.$sid.ip")"
+	if [ -z "$ip" ]; then
+		ifn="$(uci -q get "srun.$sid.if_name")"
+		[ -n "$ifn" ] && ip="$(ip -o -4 addr show dev "$ifn" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)"
+	fi
+	cmd="/usr/bin/srun logout"
+	[ -n "$server" ] && cmd="$cmd -s '$server'"
+	cmd="$cmd -u '$user' -i '$ip'"
+	[ -n "$acid" ] && cmd="$cmd --acid '$acid'"
+	out="$(eval "$cmd" 2>&1)"; rc=$?
+	json_add_object
+	json_add_int code "$rc"
+	json_add_string stdout "$out"
+	json_close_object
+}
+
+do_logout() {
+	json_get_var SID sid
+	json_init
+	json_add_int code 0
+	json_add_array results
+	. /lib/functions.sh
+	config_load srun
+	config_foreach logout_user login
+	json_close_array
+	json_dump
+}
+
+# ---------------- dispatch ----------------
+
+case "$1" in
+	list)
+		cat <<'EOF'
+{
+  "status": {},
+  "netif": {},
+  "tail_log": { "lines": 200 },
+  "action": { "action": "restart" },
+  "login": { "sid": "" },
+  "logout": { "sid": "" }
+}
+EOF
+		;;
+
+	call)
+		method="$2"
+		input="$(cat)"
+		json_load "$input" 2>/dev/null
+
+		case "$method" in
+			status)   do_status ;;
+			netif)    do_netif ;;
+			tail_log) do_tail_log ;;
+			action)   do_action ;;
+			login)    do_login ;;
+			logout)   do_logout ;;
+		esac
+		;;
+esac
+
+exit 0

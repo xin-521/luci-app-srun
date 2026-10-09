@@ -1,0 +1,124 @@
+#!/usr/bin/env ucode
+// SPDX-License-Identifier: Apache-2.0
+//
+// Generate per-account srun runtime configs from /etc/config/srun.
+// Output: /var/run/srun/user-<sid>.json (mode 0600), schema matching upstream config.json.
+'use strict';
+
+import { cursor } from 'uci';
+import { mkdir, chmod, writefile, rename, stat, popen, opendir, unlink } from 'fs';
+
+const RUN_DIR = '/var/run/srun';
+const uci = cursor();
+
+function bool(v, def) {
+	if (v === null || v === '')
+		return def;
+	return (v == '1' || v == 'true' || v == 'yes' || v == 'on');
+}
+
+function num(v, def) {
+	if (v === null || v === '')
+		return def;
+	const n = +v;
+	return (n == n) ? n : def; // NaN guard
+}
+
+function str(v, def) {
+	return (v === null || v === '') ? def : '' + v;
+}
+
+// Resolve an interface name to its first IPv4 address, or null.
+// Accepts a real device (ip addr show dev X) or a logical interface
+// (ubus call network.interface.X status -> ipv4-address[0].address).
+function resolve_ip(ifname) {
+	if (!ifname)
+		return null;
+	const safe = replace(ifname, "'", "");
+	const fh = popen("ip -o -4 addr show dev '" + safe + "' 2>/dev/null", 'r');
+	const out = fh.read('all') || '';
+	fh.close();
+	const m = match(out, /inet\s+([0-9.]+)\//);
+	if (m)
+		return m[1];
+	const uf = popen("ubus -t 2 call network.interface.'" + safe + "' status 2>/dev/null", 'r');
+	const uout = uf.read('all') || '';
+	uf.close();
+	const um = match(uout, /"address"\s*:\s*"([0-9.]+)"/);
+	return um ? um[1] : null;
+}
+
+// Build one upstream config.json object for a single account.
+function build(main, user) {
+	const detect = (user.detect_ip !== null && user.detect_ip !== '')
+		? bool(user.detect_ip, false) : null;
+
+	return {
+		server:       (main.server && length(main.server)) ? '' + main.server : null,
+		detect_ip:    detect !== null ? detect : bool(main.detect_ip, false),
+		strict_bind:  bool(main.strict_bind, false),
+		double_stack: bool(main.double_stack, false),
+		retry_delay:  num(main.retry_delay, 1000),
+		retry_times:  num(main.retry_times, 3),
+		n:            num(main.n, 200),
+		type:         num(main.type, 1),
+		acid:         num(main.acid, 12),
+		os:           str(main.os, 'Windows 10'),
+		name:         str(main.name, 'Windows'),
+		users: [ {
+			username: str(user.username, ''),
+			password: str(user.password, ''),
+			ip: (str(user.ip, '') || resolve_ip(user.if_name) || '')
+		} ]
+	};
+}
+
+// Ensure the run directory exists with tight permissions.
+if (!stat(RUN_DIR))
+	mkdir(RUN_DIR);
+chmod(RUN_DIR, 0o700);
+
+const main = uci.get_all('srun', 'main') || {};
+const wanted = {};
+let failed = 0;
+
+uci.foreach('srun', 'login', function(s) {
+	const sid = s['.name'];
+
+	if (!bool(s.enabled, true))
+		return;
+	if (!s.username || !s.password) {
+		warn(sprintf('srun: account [%s] missing username/password, skipped\n', sid));
+		return;
+	}
+	if (!s.ip && !s.if_name && !bool(main.detect_ip, false))
+		warn(sprintf('srun: account [%s] has no ip/if_name, relying on detect_ip\n', sid));
+
+	const file = sprintf('%s/user-%s.json', RUN_DIR, sid);
+	const tmp = file + '.tmp';
+	try {
+		writefile(tmp, sprintf('%.J', build(main, s)));
+		chmod(tmp, 0o600);
+		rename(tmp, file);
+		wanted[sid] = true;
+	}
+	catch (e) {
+		warn(sprintf('srun: failed to write %s: %s\n', file, e));
+		failed = 1;
+	}
+});
+
+// Drop per-user files whose account was removed or disabled.
+const dh = opendir(RUN_DIR);
+if (dh) {
+	let e;
+	while ((e = dh.read()) !== null) {
+		const m = match(e, /^user-(.+)\.json$/);
+		if (m && !wanted[m[1]])
+			unlink(sprintf('%s/%s', RUN_DIR, e));
+	}
+	dh.close();
+}
+
+uci.unload();
+exit(failed);

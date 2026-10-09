@@ -1,0 +1,35 @@
+# The machine-level ~/.config/git/ignore contains `dist/`; this project ships
+# prebuilt .apk artifacts there (see INSTALL.md), so re-include it explicitly.
+!dist/
+dist/.stage/
+
+# --- vendored cross-compiled ELF blobs (already embedded in dist/*.apk) ---
+# drop a binary here only if you want build-apk.sh to pick it up locally
+prebuilt/
+
+# --- OpenWrt / LuCI buildroot output (if built inside an SDK or luci tree) ---
+bin/
+build/
+staging_dir/
+build_dir/
+*.ipk
+*.deb
+
+# --- host tool scratch used by scripts/ (built separately, see scripts/README.md) ---
+apk-tools-src/
+luci-po2lmo/
+
+# --- editor / OS junk ---
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- local scratch / logs ---
+*.log
+tmp/
