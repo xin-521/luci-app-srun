@@ -4,8 +4,8 @@
 
 | 文件 | 架构 | 说明 |
 | --- | --- | --- |
-| `srun-0.6.2-r2.apk` | `aarch64_cortex-a53` | armv8 静态 musl 二进制（`/usr/bin/srun`） |
-| `luci-app-srun-1.0.8-r1.apk` | `noarch` | LuCI 应用（脚本/JS/ucode/ACL） |
+| `srun-0.6.2-r3.apk` | `aarch64_cortex-a53` | armv8 静态 musl 二进制（`/usr/bin/srun`） |
+| `luci-app-srun-1.0.8-r2.apk` | `noarch` | LuCI 应用（脚本/JS/ucode/ACL） |
 | `APKINDEX.tar.gz` | — | 本地 feed 索引 |
 
 > 仅适用于将 `opkg` 换成 `apk` 的 OpenWrt（25.12 及之后 / snapshot）。
@@ -15,7 +15,7 @@
 把 `dist/` 下两个 `.apk` 传到设备后：
 
 ```sh
-apk add --allow-untrusted ./srun-0.6.2-r2.apk ./luci-app-srun-1.0.8-r1.apk
+apk add --allow-untrusted ./srun-0.6.2-r3.apk ./luci-app-srun-1.0.8-r2.apk
 ```
 
 安装时包的 `post-install` 会自动：重启 `rpcd`（加载 `luci.srun` 插件）、创建

@@ -14,14 +14,14 @@
 
 | 文件（`dist/`） | 架构 | 说明 |
 | --- | --- | --- |
-| `srun-0.6.2-r2.apk` | `aarch64_cortex-a53` | armv8 静态 musl 二进制 |
-| `luci-app-srun-1.0.8-r1.apk` | `noarch` | LuCI 应用 |
+| `srun-0.6.2-r3.apk` | `aarch64_cortex-a53` | armv8 静态 musl 二进制 |
+| `luci-app-srun-1.0.8-r2.apk` | `noarch` | LuCI 应用 |
 | `APKINDEX.tar.gz` | — | 本地 feed 索引 |
 
 设备上安装（详见 [`INSTALL.md`](./INSTALL.md)）：
 
 ```sh
-apk add --allow-untrusted ./srun-0.6.2-r2.apk ./luci-app-srun-1.0.8-r1.apk
+apk add --allow-untrusted ./srun-0.6.2-r3.apk ./luci-app-srun-1.0.8-r2.apk
 ```
 
 重新构建：

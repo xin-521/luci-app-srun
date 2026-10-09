@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# Copyright (C) 2026 <maintainer>
+# Copyright (C) 2026 zeroxin <zeroxin1936999453@zohomail.com>
 #
 # This is free software, licensed under the Apache License, Version 2.0 .
 
@@ -11,7 +11,7 @@ LUCI_DEPENDS:=+luci-base +srun
 LUCI_PKGARCH:=all
 
 PKG_LICENSE:=Apache-2.0
-PKG_MAINTAINER:=<maintainer>
+PKG_MAINTAINER:=zeroxin <zeroxin1936999453@zohomail.com>
 
 # The ubus object luci.srun is a plain shell rpcd plugin; restart rpcd on
 # install so it is picked up without a reboot.

@@ -97,7 +97,7 @@ LUCI_TITLE:=LuCI support for SRun/深澜 portal authentication
 LUCI_DEPENDS:=+luci-base +srun
 LUCI_PKGARCH:=all
 PKG_LICENSE:=Apache-2.0
-PKG_MAINTAINER:=<maintainer>
+PKG_MAINTAINER:=zeroxin <zeroxin1936999453@zohomail.com>
 PKG_VERSION:=$(shell ...)   # 可选，默认继承 feed
 
 include ../../luci.mk

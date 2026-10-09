@@ -14,7 +14,7 @@
 APK=/path/to/apk PO2LMO=/path/to/po2lmo sh scripts/build-apk.sh
 
 # 覆盖版本/架构
-SRUN_VER=0.6.2-r2 SRUN_ARCH=aarch64_generic sh scripts/build-apk.sh
+SRUN_VER=0.6.2-r3 SRUN_ARCH=aarch64_generic sh scripts/build-apk.sh
 ```
 
 ### `srun` 二进制从哪里来

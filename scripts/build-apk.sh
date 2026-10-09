@@ -33,8 +33,11 @@ else
 	BIN=$ROOT/target/aarch64-unknown-linux-musl/release/srun
 fi
 
-SRUN_VER=${SRUN_VER:-0.6.2-r2}
-LUCI_VER=${LUCI_VER:-1.0.8-r1}
+SRUN_VER=${SRUN_VER:-0.6.2-r3}
+LUCI_VER=${LUCI_VER:-1.0.8-r2}
+# Packager/maintainer recorded in both .apk files. Upstream authorship of the
+# srun binary itself stays expressed via origin/url/GPL-3.0 licence.
+MAINTAINER=${MAINTAINER:-zeroxin <zeroxin1936999453@zohomail.com>}
 LUCI_ARCH=noarch
 
 [ -x "$APK" ]  || { echo "missing apk tool: $APK" >&2; exit 1; }
@@ -68,7 +71,7 @@ chmod 755 "$APP/scripts/srun-post-install.sh"
 EXTRA="--script post-install:$APP/scripts/srun-post-install.sh" \
 mkpkg srun "$SRUN_VER" "$SRUN_ARCH" \
 	"SRun/深澜 portal authentication client" \
-	"GPL-3.0" "srun" "https://github.com/zu1k/srun" "zu1k" "" \
+	"GPL-3.0" "srun" "https://github.com/zu1k/srun" "$MAINTAINER" "" \
 	"$S" "srun-$SRUN_VER.apk"
 unset EXTRA
 
@@ -94,7 +97,7 @@ EXTRA="--script post-install:$PKG/post-install.sh" \
 mkpkg luci-app-srun "$LUCI_VER" "$LUCI_ARCH" \
 	"LuCI support for SRun/深澜 portal authentication" \
 	"Apache-2.0" "openwrt-luci-app-srun" \
-	"https://github.com/zu1k/srun" "OpenWrt LuCI community" \
+	"https://github.com/zu1k/srun" "$MAINTAINER" \
 	"luci-base srun" \
 	"$L" "luci-app-srun-$LUCI_VER.apk"
 unset EXTRA
