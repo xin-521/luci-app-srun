@@ -31,12 +31,21 @@ luci-app-srun/
 ## 构建
 
 ```sh
-# 在 openwrt 源码树中，把本仓库（含 luci-app-srun/ 目录）加入自定义 feed
-echo "src-link custom /path/to/openwrt-luci-app-srun" >> feeds.conf.default
-./scripts/feeds update custom
-./scripts/feeds install -a -p custom
+# Makefile 以 `include ../../luci.mk` 引用 luci 仓库根的构建框架，
+# 因此 feed 根必须是含 luci.mk 的 luci 检出（不能直接把本仓库根挂为 feed）。
+# 将本包放入 luci 源码树：
+git clone -b master https://github.com/openwrt/luci.git luci-tree
+cp -a /path/to/openwrt-luci-app-srun/luci-app-srun luci-tree/applications/
+
+# 在 openwrt 源码树中，把官方 luci feed 替换为该本地树并编译：
+sed -i 's|^src-git luci .*|src-link luci /absolute/path/to/luci-tree|' feeds.conf.default
+./scripts/feeds update luci
+./scripts/feeds install -a -p luci
 make package/luci-app-srun/compile
 ```
+
+> `LUCI_DEPENDS` 中的 `srun` 不在任何官方 feed 里：CI 以 stub feed 满足依赖做编译验证
+> （见 `.github/workflows/openwrt-build.yml`）；真机部署请使用 `dist/` 的 apk 或自行打包。
 
 ## 运行模型
 

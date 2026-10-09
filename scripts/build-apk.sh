@@ -97,7 +97,7 @@ EXTRA="--script post-install:$PKG/post-install.sh" \
 mkpkg luci-app-srun "$LUCI_VER" "$LUCI_ARCH" \
 	"LuCI support for SRun/深澜 portal authentication" \
 	"Apache-2.0" "openwrt-luci-app-srun" \
-	"https://github.com/zu1k/srun" "$MAINTAINER" \
+	"${LUCI_APP_URL:-https://github.com/xin-521/luci-app-srun.git}" "$MAINTAINER" \
 	"luci-base srun" \
 	"$L" "luci-app-srun-$LUCI_VER.apk"
 unset EXTRA

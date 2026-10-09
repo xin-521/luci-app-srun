@@ -1,0 +1,179 @@
+name: Build OpenWrt packages
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "luci-app-srun/**"
+      - ".github/workflows/openwrt-build.yml"
+  pull_request:
+    paths:
+      - "luci-app-srun/**"
+      - ".github/workflows/openwrt-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # git identity used to commit the package into the local luci tree so
+  # luci.mk's findrev() derives a real timestamp version for the artifact name
+  GIT_AUTHOR_NAME: ci
+  GIT_AUTHOR_EMAIL: ci@invalid
+  GIT_COMMITTER_NAME: ci
+  GIT_COMMITTER_EMAIL: ci@invalid
+
+jobs:
+  build:
+    name: "${{ matrix.pkgfmt }} / ${{ matrix.target }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # OpenWrt snapshot (master) ships the APK package manager -> .apk
+          - openwrt: master
+            luci: master
+            pkgfeed: "https://git.openwrt.org/feed/packages.git"
+            target: "x86/64"
+            pkgfmt: apk
+          - openwrt: master
+            luci: master
+            pkgfeed: "https://git.openwrt.org/feed/packages.git"
+            target: "mediatek/filogic"
+            pkgfmt: apk
+          - openwrt: master
+            luci: master
+            pkgfeed: "https://git.openwrt.org/feed/packages.git"
+            target: "ramips/mt7621"
+            pkgfmt: apk
+          # OpenWrt 24.10 (stable) still uses opkg -> .ipk
+          - openwrt: openwrt-24.10
+            luci: openwrt-24.10
+            pkgfeed: "https://git.openwrt.org/feed/packages.git;openwrt-24.10"
+            target: "x86/64"
+            pkgfmt: ipk
+          - openwrt: openwrt-24.10
+            luci: openwrt-24.10
+            pkgfeed: "https://git.openwrt.org/feed/packages.git;openwrt-24.10"
+            target: "mediatek/filogic"
+            pkgfmt: ipk
+          - openwrt: openwrt-24.10
+            luci: openwrt-24.10
+            pkgfeed: "https://git.openwrt.org/feed/packages.git;openwrt-24.10"
+            target: "ramips/mt7621"
+            pkgfmt: ipk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup
+          sudo docker image prune --force >/dev/null 2>&1 || true
+          df -h /
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            binutils bzip2 clang flex bison g++ gawk gcc gettext git gnupg file \
+            libncurses-dev libelf-dev libssl-dev python3 rsync unzip wget zlib1g-dev
+
+      - name: Checkout OpenWrt and LuCI trees
+        run: |
+          git clone --depth 1 --branch "${{ matrix.openwrt }}" https://github.com/openwrt/openwrt.git openwrt
+          git clone --depth 1 --branch "${{ matrix.luci }}" https://github.com/openwrt/luci.git luci-tree
+
+      - name: Assemble feeds
+        run: |
+          cp -a luci-app-srun luci-tree/applications/luci-app-srun
+          # commit into the local luci tree so luci.mk findrev() gets a version
+          cd luci-tree
+          git add applications/luci-app-srun
+          git commit -q -m "add luci-app-srun"
+          cd ..
+          # srun is not in any official feed; provide a stub so the +srun
+          # dependency resolves during CI compile tests only. Real devices use
+          # the dist/ apk or a self-packaged srun client.
+          mkdir -p feed-srun/srun/files
+          cat > feed-srun/srun/Makefile <<'EOF'
+          include $(TOPDIR)/rules.mk
+
+          PKG_NAME:=srun
+          PKG_VERSION:=0.6.2
+          PKG_RELEASE:=1
+          PKG_LICENSE:=GPL-3.0
+          PKG_MAINTAINER:=CI stub
+
+          include $(INCLUDE_DIR)/package.mk
+
+          define Package/srun
+            SECTION:=net
+            CATEGORY:=Network
+            TITLE:=SRun portal client (CI stub)
+            URL:=https://github.com/zu1k/srun
+          endef
+
+          define Package/srun/description
+            Placeholder package satisfying the luci-app-srun dependency during CI
+            compile tests only. Install a real srun client on the router.
+          endef
+
+          define Package/srun/install
+          	$(INSTALL_DIR) $(1)/usr/bin
+          	$(INSTALL_BIN) ./files/srun $(1)/usr/bin/srun
+          endef
+
+          $(eval $(call BuildPackage,srun))
+          EOF
+          cat > feed-srun/srun/files/srun <<'EOF'
+          #!/bin/sh
+          echo "srun CI stub"
+          EOF
+          cat > openwrt/feeds.conf.default <<EOF
+          src-git packages ${{ matrix.pkgfeed }}
+          src-link luci ../luci-tree
+          src-link srun-stub ../feed-srun
+          EOF
+
+      - name: Update and install feeds
+        run: |
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Configure target and packages
+        run: |
+          cd openwrt
+          TARGET="${{ matrix.target }}"
+          {
+            echo "CONFIG_TARGET_${TARGET%%/*}=y"
+            echo "CONFIG_TARGET_${TARGET%%/*}_${TARGET##*/}=y"
+            echo "CONFIG_PACKAGE_luci-app-srun=y"
+            echo "CONFIG_PACKAGE_luci-i18n-srun-zh-cn=y"
+          } >> .config
+          make defconfig
+          grep -E '^(CONFIG_TARGET_|CONFIG_PACKAGE_luci-app-srun|CONFIG_PACKAGE_luci-i18n-srun)' .config
+
+      - name: Build packages
+        run: |
+          cd openwrt
+          make -j"$(nproc)" package/luci-app-srun/compile V=s
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p out
+          find openwrt/bin/packages -type f \
+            \( -name 'luci-app-srun*.apk' -o -name 'luci-app-srun*.ipk' \
+               -o -name 'luci-i18n-srun*.apk' -o -name 'luci-i18n-srun*.ipk' \) \
+            -exec cp {} out/ \;
+          [ -n "$(find out -name 'luci-app-srun*')" ] || { echo "no package produced" >&2; exit 1; }
+          ( cd out && sha256sum ./* > sha256sums )
+          ls -l out
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-srun-${{ matrix.pkgfmt }}-${{ matrix.target }}
+          path: out/
