@@ -133,8 +133,8 @@ jobs:
           EOF
           cat > openwrt/feeds.conf.default <<EOF
           src-git packages ${{ matrix.pkgfeed }}
-          src-link luci ../luci-tree
-          src-link srunstub ../feed-srun
+          src-link luci ${{ github.workspace }}/luci-tree
+          src-link srunstub ${{ github.workspace }}/feed-srun
           EOF
 
       - name: Update and install feeds
