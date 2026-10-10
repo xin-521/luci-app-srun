@@ -134,17 +134,17 @@ make package/luci-app-srun/compile
 - `procd` 守护 `srun-daemon` 周期调用 `srun login -c <per-user.json>`，成功判定写 `state.tsv`。
 - Web UI 经 `rpcd` 的 ubus 对象 `luci.srun` 读取状态、触发动作；该插件是**纯 shell**
   (`/usr/libexec/rpcd/luci.srun`)，不依赖 `rpcd-mod-ucode`；ACL 最小授权（`acl.d/luci-app-srun.json`）。
-- 抓取状态的唯一 ucode 脚本是 `srun-generate-config`（UCI → 运行时 JSON），由 `luci-base` 带出 `ucode` 依赖。
+- 抓取状态的 ucode 脚本只有 `srun-generate-config`（UCI → 运行时 JSON），其 `ucode` 由 `luci-base` 带出。
+- 支持多拨（多 `login` 账号节）、按网卡/IP 绑定、开机自启与断线巡检。
 
 ## 版本与元数据
 
 包版本有两处，需同步：`luci-app-srun/Makefile` 的 `PKG_VERSION`/`PKG_RELEASE`（buildroot/feed 构建用）
 与 `scripts/build-apk.sh` 的 `LUCI_VER`（`dist/` 构建用）。二者当前均为 `1.0.9-r1`。
 作者信息写在 `LUCI_MAINTAINER`/`PKG_MAINTAINER`（**`luci.mk` 只认 `LUCI_MAINTAINER`**），
-`LUCI_URL` 为上游仓库地址；许可证 Apache-2.0（本包）/ GPL-3.0（上游 `srun`）。
+`LUCI_URL` 指向本仓库；许可证 Apache-2.0（本包）/ GPL-3.0（上游 `srun`）。
 
 升级 `luci-app-srun` 后**必须 `Ctrl+F5` 强刷**：LuCI 的静态资源缓存版本号取自 LuCI 自身版本，
 与本包版本无关，否则浏览器仍跑旧 JS（详见 [`INSTALL.md`](./INSTALL.md)）。
-- 支持多拨（多 `login` 账号节）、按网卡/IP 绑定、开机自启与断线巡检。
 
-详见 `SPEC.md`。
+详见 [`SPEC.md`](./SPEC.md)（规范与设计依据）。

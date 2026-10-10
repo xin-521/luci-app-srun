@@ -16,6 +16,11 @@ on:
       - ".github/workflows/openwrt-build.yml"
   workflow_dispatch:
 
+# a buildroot compile is slow (~40 min/target); a newer push supersedes it
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
