@@ -26,21 +26,29 @@ luci-app-srun/
 ## 依赖
 
 - `srun`（独立包，须可执行于 `/usr/bin/srun`；可用 UCI `srun.main.binary` 覆盖）。
-- `luci-base` 与 `ucode`。
+- `luci-base`（同时带出 `ucode`，供 `srun-generate-config` 转换 UCI → 运行时 JSON）。
+- rpcd 插件 `luci.srun` 是**纯 shell**（`#!/bin/sh`），不依赖 `rpcd-mod-ucode`。
 
 ## 构建
 
+Makefile 会自动定位 `luci.mk`：先找 `../../luci.mk`（LuCI feed 布局：
+`<luci检出>/applications/luci-app-srun/`），找不到就回退到树内 `$(TOPDIR)/feeds/*/luci.mk`，
+所以本目录既可直接放进 `openwrt/package/` 编译，也可按下面任一种方式作为 feed：
+
 ```sh
-# Makefile 以 `include ../../luci.mk` 引用 luci 仓库根的构建框架，
-# 因此 feed 根必须是含 luci.mk 的 luci 检出（不能直接把本仓库根挂为 feed）。
-# 将本包放入 luci 源码树：
+# A. 本仓库作为本地 feed（含本目录 luci-app-srun/）
+cd /path/to/openwrt
+echo "src-link srun /path/to/openwrt-luci-app-srun" >> feeds.conf.default
+./scripts/feeds update srun && ./scripts/feeds install -a -p srun
+make package/luci-app-srun/compile
+
+# B. 放进 luci 检出后，把它整体作为 luci feed（CI 采用的方式）
 git clone -b master https://github.com/openwrt/luci.git luci-tree
 cp -a /path/to/openwrt-luci-app-srun/luci-app-srun luci-tree/applications/
-
-# 在 openwrt 源码树中，把官方 luci feed 替换为该本地树并编译：
-sed -i 's|^src-git luci .*|src-link luci /absolute/path/to/luci-tree|' feeds.conf.default
-./scripts/feeds update luci
-./scripts/feeds install -a -p luci
+cd /path/to/openwrt
+sed -i '\|^src-.* luci |d' feeds.conf.default
+echo "src-link luci /path/to/luci-tree" >> feeds.conf.default
+./scripts/feeds update luci && ./scripts/feeds install -a -p luci
 make package/luci-app-srun/compile
 ```
 

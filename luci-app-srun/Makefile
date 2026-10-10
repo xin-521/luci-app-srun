@@ -43,6 +43,12 @@ define Package/luci-app-srun/postinst
 exit 0
 endef
 
-include ../../luci.mk
+# luci.mk lives at the root of a LuCI feed checkout. Accept both placements:
+#   <luci-feed>/applications/luci-app-srun/   (feed layout, ../../luci.mk)
+#   openwrt/package/luci-app-srun/ or a src-link feed pointing at this repo
+#   (no ../../luci.mk then - fall back to the luci feed installed in the tree).
+LUCI_MK:=$(firstword $(wildcard ../../luci.mk $(TOPDIR)/feeds/*/luci.mk))
+$(if $(LUCI_MK),,$(error luci.mk not found: put this package into an OpenWrt tree with the luci feed, or into <luci-feed>/applications/))
+include $(LUCI_MK)
 
 # call BuildPackage - OpenWrt buildroot signature
