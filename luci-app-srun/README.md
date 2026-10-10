@@ -46,7 +46,7 @@ make package/luci-app-srun/compile
 git clone -b master https://github.com/openwrt/luci.git luci-tree
 cp -a /path/to/openwrt-luci-app-srun/luci-app-srun luci-tree/applications/
 cd /path/to/openwrt
-sed -i '\|^src-.* luci |d' feeds.conf.default
+sed -i '/^src-.* luci /d' feeds.conf.default
 echo "src-link luci /path/to/luci-tree" >> feeds.conf.default
 ./scripts/feeds update luci && ./scripts/feeds install -a -p luci
 make package/luci-app-srun/compile

@@ -115,7 +115,7 @@ cp -a /path/to/openwrt-luci-app-srun/luci-app-srun luci-tree/applications/
 
 cd /path/to/openwrt
 # 把本地 luci 树作为 feed（同名 luci 条目则覆盖官方 src-git 行）
-sed -i '\|^src-.* luci |d' feeds.conf.default
+sed -i '/^src-.* luci /d' feeds.conf.default
 echo "src-link luci /path/to/luci-tree" >> feeds.conf.default
 ./scripts/feeds update luci && ./scripts/feeds install -a -p luci
 make package/luci-app-srun/compile
