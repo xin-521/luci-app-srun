@@ -52,14 +52,21 @@ apk add --allow-untrusted ./srun-0.6.2-r3.apk ./luci-app-srun-1.0.9-r1.apk
 > Rust 对 5 个目标（aarch64/armv7/arm/x86_64/i686）自带 musl 自包含链接；mips/mipsel
 > 没有发布 std（用 `-Z build-std`），这三个连同 riscv64 用 musl.cc 工具链做 linker。
 >
+> 所有目标统一用工具链自带的 `rust-lld` 链接：Ubuntu 的 `/usr/bin/ld` 只支持宿主目标，
+> 会拒绝 `--fix-cortex-a53-843419` 这类目标专属选项（这正是 x86_64/i686 能过、其余
+> 架构全挂的原因）。
+>
 > 另有 [`.github/workflows/openwrt-build.yml`](./.github/workflows/openwrt-build.yml)：把本包放进
 > 真实 OpenWrt 构建树做编译冒烟测试（慢，约 40 分钟/目标）。
 
 重新构建（本机单架构）：
 
 ```sh
-# 先在上游 srun 源码目录交叉编译二进制
-AUTH_SERVER_IP=10.0.0.1 cargo build --release --target aarch64-unknown-linux-musl
+# 先在上游 srun 源码目录交叉编译二进制。
+# 两个平台都需显式指定 rust-lld：mingw 的 ld 是 PE 链接器，Ubuntu 的 ld 只支持宿主目标。
+AUTH_SERVER_IP=10.0.0.1 \
+  CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld \
+  cargo build --release --target aarch64-unknown-linux-musl
 sh scripts/build-apk.sh
 ```
 

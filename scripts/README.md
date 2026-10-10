@@ -47,7 +47,7 @@ env SRUN_BIN=bin/srun SRUN_ARCH=mipsel_24kc DIST=$PWD/out WITH_LUCI=0 sh scripts
 均不存在则报错并提示自行交叉编译：
 
 ```sh
-# 在 srun 源码目录（Windows/MSYS2 需显式指定 rust-lld，Linux 用默认 cc 即可）
+# 在 srun 源码目录（两个平台都需显式指定 rust-lld，系统 ld 不适合交叉链接）
 AUTH_SERVER_IP=10.0.0.1 \
   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld \
   cargo build --release --target aarch64-unknown-linux-musl

@@ -109,10 +109,15 @@ jobs:
         run: |
           set -eu
           triple="${{ matrix.rust }}"
-          if [ -n "${MUSL_GCC:-}" ]; then
-            var="CARGO_TARGET_$(echo "$triple" | tr 'a-z-' 'A-Z_')_LINKER"
-            export "$var=$MUSL_GCC"
-          fi
+          # Ubuntu's /usr/bin/ld is built for the host target only and rejects
+          # e.g. --fix-cortex-a53-843419, so always link with the toolchain's
+          # bundled rust-lld.  The musl.cc targets override that with their own
+          # gcc, which additionally supplies the crt/libc Rust does not ship
+          # for those triples.
+          linker="${MUSL_GCC:-rust-lld}"
+          var="CARGO_TARGET_$(echo "$triple" | tr 'a-z-' 'A-Z_')_LINKER"
+          export "$var=$linker"
+          echo "$var=$linker"
           extra=""
           [ -n "${{ matrix.build_std }}" ] && extra="-Z build-std=std,panic_abort"
           # shellcheck disable=SC2086
