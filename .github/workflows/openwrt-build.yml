@@ -129,6 +129,11 @@ jobs:
           	$(INSTALL_BIN) ./files/srun $(1)/usr/bin/srun
           endef
 
+          # no source tarball, so keep Build/Compile from running make in an
+          # empty build dir ("No targets specified and no makefile found")
+          define Build/Compile
+          endef
+
           $(eval $(call BuildPackage,srun))
           EOF
           cat > feed-srun/srun/files/srun <<'EOF'
