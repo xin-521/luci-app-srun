@@ -179,8 +179,11 @@ jobs:
           tar -xzf /tmp/apk-tools.tar.gz -C /tmp
           src=$(find /tmp -maxdepth 1 -type d -name 'apk-tools-*' | head -1)
           # LUA=no skips the help-text generator, so no lua interpreter is
-          # needed (genhelp.lua has no exec bit in the GitHub tarball)
-          make -C "$src" -j"$(nproc)" STATIC=y LUA=no
+          # needed (genhelp.lua has no exec bit in the GitHub tarball).
+          # URL_BACKEND=wget drops the bundled libfetch, whose static archive is
+          # not resolvable in the apk.static link (undefined fetch* symbols);
+          # the wget backend is unused here anyway, mkpkg/verify/mkndx are local.
+          make -C "$src" -j"$(nproc)" STATIC=y LUA=no URL_BACKEND=wget
           apk="$src/src/apk.static"
           "$apk" version 2>&1 || true
           echo "APK=$apk" >> "$GITHUB_ENV"
