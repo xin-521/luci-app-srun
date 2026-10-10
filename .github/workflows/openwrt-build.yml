@@ -1,4 +1,8 @@
-name: Build OpenWrt packages
+name: OpenWrt buildroot compile test
+
+# Slow smoke test: drops this package into a real OpenWrt tree and compiles it
+# there (LuCI app + i18n) for a few targets. For the actual .apk artifacts with
+# cross compiled binaries see build-apk.yml.
 
 on:
   push:

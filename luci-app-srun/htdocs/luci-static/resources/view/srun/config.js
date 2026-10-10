@@ -10,6 +10,17 @@ var callNetif  = rpc.declare({ object: 'luci.srun', method: 'netif' });
 
 return view.extend({
 	load: function() {
+		/* Safety net for the service restart: a successful apply already fires
+		   the procd `config.change` trigger registered by service_triggers()
+		   in /etc/init.d/srun, so the daemon is restarted server side. Trigger
+		   one more reload when the apply has been confirmed, in case the
+		   trigger was not registered (e.g. the service got disabled while this
+		   page was open). `ui.changes.apply()` itself does not return a usable
+		   promise, hence the event listener instead of promise chaining. */
+		document.addEventListener('uci-applied', function() {
+			callAction('reload').catch(function() {});
+		});
+
 		return Promise.all([
 			uci.load('srun'),
 			callNetif().catch(function() { return null; })
@@ -105,12 +116,21 @@ return view.extend({
 		return m.render();
 	},
 
-	// Save + apply, then explicitly (re)start the service so it does not depend
-	// solely on the procd config.change trigger.
+	// Save and apply exactly once, through LuCI's own apply flow.
+	//
+	// Previously this called uci.apply() first and ui.changes.apply() after it.
+	// Two rollback applies in a row do not work: rpcd's `uci apply` returns
+	// UBUS_STATUS_PERMISSION_DENIED while another rollback apply is pending
+	// (apply_sid in rpcd/uci.c), and admin/uci/apply_rollback maps that error
+	// to HTTP 403 "Permission denied" - which LuCI shows as
+	// "Apply request failed with status Permission denied".
+	//
+	// `mode` is the ComboButton value: '0' means the checked (rollback backed)
+	// "Save & Apply" entry, '1' the "Apply unchecked" one, so compare instead
+	// of passing the raw string through as a truthy value.
 	handleSaveApply: function(ev, mode) {
-		return this.handleSave(ev)
-			.then(function() { return uci.apply(); })
-			.then(function() { return callAction('reload').catch(function() {}); })
-			.then(function() { return ui.changes.apply(mode); });
+		return this.handleSave(ev).then(function() {
+			return ui.changes.apply(mode == '0');
+		});
 	}
 });

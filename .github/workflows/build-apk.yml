@@ -1,0 +1,249 @@
+name: Build .apk packages
+
+# Cross-compiles the upstream `srun` client for every OpenWrt CPU family that
+# has a Rust `*-linux-musl` target, wraps each binary plus the noarch LuCI app
+# into OpenWrt .apk packages (apk-tools v3 / OpenWrt 25.12+) and, for tag
+# pushes, attaches everything to a GitHub release.
+#
+# Nothing has to be cross-compiled on a developer machine.
+#
+# Push a tag (`git push origin v1.0.9`) to get a release with all packages.
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      auth_server_ip:
+        description: 'Compiled-in default portal IP (AUTH_SERVER_IP)'
+        required: false
+        default: '10.0.0.1'
+      srun_ref:
+        description: 'Upstream zu1k/srun tag or commit to build'
+        required: false
+        default: '0.6.2'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Build-time constant baked into the binary; a device can still override it
+  # through the `server` UCI option.
+  AUTH_SERVER_IP: ${{ github.event.inputs.auth_server_ip || '10.0.0.1' }}
+  SRUN_REPO: https://github.com/zu1k/srun
+  SRUN_REF: ${{ github.event.inputs.srun_ref || '0.6.2' }}
+  # apk-tools 3 writes v3 .apk packages; Ubuntu ships no apk-tools, so Alpine's
+  # source tarball is built statically here.
+  APK_TOOLS_VERSION: '3.0.8'
+  # LuCI branch the po2lmo host tool is taken from.
+  LUCI_BRANCH: openwrt-24.10
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # one static srun binary per CPU family
+  # ---------------------------------------------------------------------------
+  binary:
+    name: srun (${{ matrix.openwrt }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # rust target                          OpenWrt arch
+          - { rust: aarch64-unknown-linux-musl,     openwrt: aarch64_cortex-a53 }
+          - { rust: armv7-unknown-linux-musleabihf, openwrt: arm_cortex-a7_neon-vfpv4 }
+          - { rust: arm-unknown-linux-musleabi,     openwrt: arm_arm926ej-s }
+          - { rust: x86_64-unknown-linux-musl,      openwrt: x86_64 }
+          - { rust: i686-unknown-linux-musl,        openwrt: i386_pentium4 }
+          # Rust publishes no std for the mips musl targets and the riscv64 musl
+          # target has no self-contained libc, so those three use a musl.cc
+          # toolchain as linker; mips/mipsel additionally build std from source.
+          - { rust: mipsel-unknown-linux-musl,      openwrt: mipsel_24kc,
+              muslcc: mipsel-linux-musl, build_std: true }
+          - { rust: mips-unknown-linux-musl,        openwrt: mips_24kc,
+              muslcc: mips-linux-musl, build_std: true }
+          - { rust: riscv64gc-unknown-linux-musl,   openwrt: riscv64_generic,
+              muslcc: riscv64-linux-musl }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch srun source
+        run: |
+          git init -q srun-src
+          git -C srun-src remote add origin "$SRUN_REPO"
+          git -C srun-src fetch -q --depth 1 origin "$SRUN_REF"
+          git -C srun-src checkout -q FETCH_HEAD
+          git -C srun-src log -1 --pretty='srun source: %h %s'
+
+      - name: Install Rust nightly
+        env:
+          RUSTUP_TOOLCHAIN: nightly
+        run: |
+          rustup toolchain install nightly --profile minimal
+          # absent for the mips targets, where std is built from source instead
+          rustup target add "${{ matrix.rust }}" || true
+          if [ -n "${{ matrix.build_std }}" ]; then
+            rustup component add rust-src
+          fi
+
+      - name: Install musl cross toolchain
+        if: matrix.muslcc
+        run: |
+          curl -sSLo /tmp/muslcc.tgz "https://musl.cc/${{ matrix.muslcc }}-cross.tgz"
+          tar -xzf /tmp/muslcc.tgz -C /tmp
+          gcc="/tmp/${{ matrix.muslcc }}-cross/bin/${{ matrix.muslcc }}-gcc"
+          "$gcc" --version | head -1
+          echo "MUSL_GCC=$gcc" >> "$GITHUB_ENV"
+
+      - name: Build static musl binary
+        working-directory: srun-src
+        env:
+          RUSTUP_TOOLCHAIN: nightly
+        run: |
+          set -eu
+          triple="${{ matrix.rust }}"
+          if [ -n "${MUSL_GCC:-}" ]; then
+            var="CARGO_TARGET_$(echo "$triple" | tr 'a-z-' 'A-Z_')_LINKER"
+            export "$var=$MUSL_GCC"
+          fi
+          extra=""
+          [ -n "${{ matrix.build_std }}" ] && extra="-Z build-std=std,panic_abort"
+          # shellcheck disable=SC2086
+          cargo $extra build --release --target "$triple"
+          file "target/$triple/release/srun"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: srun-${{ matrix.rust }}
+          path: srun-src/target/${{ matrix.rust }}/release/srun
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # wrap each binary into an .apk; build the noarch LuCI app once
+  # ---------------------------------------------------------------------------
+  package:
+    name: apk (${{ matrix.openwrt }})
+    needs: binary
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { rust: aarch64-unknown-linux-musl,     openwrt: aarch64_cortex-a53, noarch: true }
+          - { rust: armv7-unknown-linux-musleabihf, openwrt: arm_cortex-a7_neon-vfpv4 }
+          - { rust: arm-unknown-linux-musleabi,     openwrt: arm_arm926ej-s }
+          - { rust: mipsel-unknown-linux-musl,      openwrt: mipsel_24kc }
+          - { rust: mips-unknown-linux-musl,        openwrt: mips_24kc }
+          - { rust: x86_64-unknown-linux-musl,      openwrt: x86_64 }
+          - { rust: i686-unknown-linux-musl,        openwrt: i386_pentium4 }
+          - { rust: riscv64gc-unknown-linux-musl,   openwrt: riscv64_generic }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install host tool dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config zlib1g-dev libzstd-dev libssl-dev
+
+      - name: Build apk-tools (static)
+        run: |
+          url="https://gitlab.alpinelinux.org/alpine/apk-tools/-/archive/v${APK_TOOLS_VERSION}/apk-tools-v${APK_TOOLS_VERSION}.tar.gz"
+          curl -sSLo /tmp/apk-tools.tar.gz "$url"
+          tar -xzf /tmp/apk-tools.tar.gz -C /tmp
+          make -C "/tmp/apk-tools-v${APK_TOOLS_VERSION}" -j"$(nproc)" STATIC=y
+          apk="/tmp/apk-tools-v${APK_TOOLS_VERSION}/src/apk.static"
+          "$apk" version 2>&1 || true
+          echo "APK=$apk" >> "$GITHUB_ENV"
+
+      - name: Build po2lmo host tool
+        run: |
+          git clone -q --depth 1 --branch "$LUCI_BRANCH" \
+            https://github.com/openwrt/luci.git luci-src
+          make -C luci-src/modules/luci-base/src po2lmo
+          echo "PO2LMO=$PWD/luci-src/modules/luci-base/src/po2lmo" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: srun-${{ matrix.rust }}
+          path: bin
+
+      - name: Package srun
+        env:
+          SRUN_BIN: bin/srun
+          SRUN_ARCH: ${{ matrix.openwrt }}
+          DIST: ${{ github.workspace }}/out
+          WITH_LUCI: '0'
+        run: sh scripts/build-apk.sh
+
+      - name: Package luci-app-srun (noarch, once)
+        if: matrix.noarch
+        env:
+          DIST: ${{ github.workspace }}/out-noarch
+          WITH_SRUN: '0'
+        run: sh scripts/build-apk.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ matrix.openwrt }}
+          path: ${{ github.workspace }}/out
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.noarch
+        with:
+          name: apk-noarch
+          path: ${{ github.workspace }}/out-noarch
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # tag push -> release with every package
+  # ---------------------------------------------------------------------------
+  release:
+    name: release ${{ github.ref_name }}
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      # every architecture produces the same package file name, so suffix each
+      # one with its OpenWrt arch to keep them apart
+      - name: Collect packages
+        run: |
+          set -eu
+          mkdir -p release
+          for dir in artifacts/apk-*; do
+            arch="${dir#artifacts/apk-}"
+            for f in "$dir"/*.apk; do
+              [ -e "$f" ] || continue
+              cp "$f" "release/$(basename "${f%.apk}")-$arch.apk"
+            done
+          done
+          # bare binaries too, for setups that do not use apk
+          for dir in artifacts/srun-*; do
+            [ -e "$dir/srun" ] || continue
+            cp "$dir/srun" "release/srun-$(basename "$dir" | sed 's/^srun-//')"
+          done
+          ( cd release && sha256sum ./*.apk > sha256sums )
+          ls -l release
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes

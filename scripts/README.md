@@ -17,6 +17,25 @@ APK=/path/to/apk PO2LMO=/path/to/po2lmo sh scripts/build-apk.sh
 SRUN_VER=0.6.2-r3 SRUN_ARCH=aarch64_generic sh scripts/build-apk.sh
 ```
 
+### 可覆盖的变量
+
+| 变量 | 默认 | 作用 |
+| --- | --- | --- |
+| `SRUN_BIN` / `BIN` | 自动探测 | 待打包的二进制路径 |
+| `SRUN_ARCH` | `aarch64_cortex-a53` | `srun` 包的 `.apk` 架构字段 |
+| `DIST` | `<repo>/dist` | 输出目录（CI 按架构分目录） |
+| `WITH_SRUN` | `1` | 设 `0` 则只出 `luci-app-srun`（noarch） |
+| `WITH_LUCI` | `1` | 设 `0` 则只出 `srun` |
+| `SRUN_VER` / `LUCI_VER` | 见脚本 | 包版本 |
+| `MAINTAINER` | zeroxin | 写入两个包的 maintainer 字段 |
+| `LUCI_APP_URL` | 本仓库地址 | `luci-app-srun` 包的 url 字段 |
+
+CI 里的用法（`env` 传参，Linux 上 `VAR=值 cmd` 前缀同样有效）：
+
+```sh
+env SRUN_BIN=bin/srun SRUN_ARCH=mipsel_24kc DIST=$PWD/out WITH_LUCI=0 sh scripts/build-apk.sh
+```
+
 ### `srun` 二进制从哪里来
 
 本仓库**不包含** Rust 源码（属上游 `zu1k/srun`）。`build-apk.sh` 按下列顺序定位待打包的二进制：
@@ -28,10 +47,16 @@ SRUN_VER=0.6.2-r3 SRUN_ARCH=aarch64_generic sh scripts/build-apk.sh
 均不存在则报错并提示自行交叉编译：
 
 ```sh
-cargo build --release --target aarch64-unknown-linux-musl   # 需在 srun 源码目录，带 AUTH_SERVER_IP=...
+# 在 srun 源码目录（Windows/MSYS2 需显式指定 rust-lld，Linux 用默认 cc 即可）
+AUTH_SERVER_IP=10.0.0.1 \
+  CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld \
+  cargo build --release --target aarch64-unknown-linux-musl
 # 或
 SRUN_BIN=~/srun-aarch64 sh scripts/build-apk.sh
 ```
+
+> 或者完全不管本机工具链：`.github/workflows/build-apk.yml` 会在 CI 上为 8 个 CPU
+> 家族构建并打包（见仓库 [`README.md`](../README.md)）。
 
 > 因 `~/.config/git/ignore` 默认含 `dist/`，仓库根 `.gitignore` 用 `!dist/` 显式重新纳入了
 > `dist/`（预编译 `.apk` 产物）。若不希望仓库里带二进制，去掉该行即可。

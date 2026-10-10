@@ -80,26 +80,34 @@ return view.extend({
 				E('td', { 'class': 'td', 'colspan': 6 }, _('No accounts configured.'))));
 		}
 
+		/* Build the section children explicitly: a bare `null` inside a children
+		   array is rendered as the literal text "null" by some LuCI versions, so
+		   only append the error paragraph when there actually is one. */
+		var service = [
+			E('h3', {}, _('Service')),
+			E('p', {}, [
+				_('State') + ': ',
+				E('span', { 'class': 'label ' + (status.running ? 'success' : 'warning') },
+					status.running ? _('Running') : _('Stopped'))
+			])
+		];
+
+		if (status.error)
+			service.push(E('p', { 'class': 'label warning' }, status.error));
+
+		service.push(E('p', {}, [
+			E('button', { 'class': 'btn cbi-button cbi-button-apply',
+				'click': function() { self.handleAction('restart'); } }, _('Restart')),
+			' ',
+			E('button', { 'class': 'btn cbi-button',
+				'click': function() { self.handleAction('start'); } }, _('Start')),
+			' ',
+			E('button', { 'class': 'btn cbi-button',
+				'click': function() { self.handleAction('stop'); } }, _('Stop'))
+		]));
+
 		var node = E('div', {}, [
-			E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, _('Service')),
-				E('p', {}, [
-					_('State') + ': ',
-					E('span', { 'class': 'label ' + (status.running ? 'success' : 'warning') },
-						status.running ? _('Running') : _('Stopped'))
-				]),
-				status.error ? E('p', { 'class': 'label warning' }, status.error) : null,
-				E('p', {}, [
-					E('button', { 'class': 'btn cbi-button cbi-button-apply',
-						'click': function() { self.handleAction('restart'); } }, _('Restart')),
-					' ',
-					E('button', { 'class': 'btn cbi-button',
-						'click': function() { self.handleAction('start'); } }, _('Start')),
-					' ',
-					E('button', { 'class': 'btn cbi-button',
-						'click': function() { self.handleAction('stop'); } }, _('Stop'))
-				])
-			]),
+			E('div', { 'class': 'cbi-section' }, service),
 			E('div', { 'class': 'cbi-section' }, [
 				E('h3', {}, _('Accounts')),
 				E('table', { 'class': 'table' }, body)

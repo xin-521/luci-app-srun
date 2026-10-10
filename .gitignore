@@ -33,3 +33,10 @@ desktop.ini
 # --- local scratch / logs ---
 *.log
 tmp/
+
+# --- local tooling / scratch (not part of the package) ---
+# merkle-snapshot hashes and CI failure logs dumped by local agents
+.merkle-snapshot.json
+luci-app-srun/tmp-failed*.txt
+# CodeArts/codebase index cache
+/.codeartsdoer/
