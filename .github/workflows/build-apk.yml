@@ -122,8 +122,9 @@ jobs:
           export "$var=$linker"
           echo "$var=$linker"
           if [ -n "${XGCC:-}" ]; then
-            # static glibc: the binary stays self contained on OpenWrt
-            export "CARGO_TARGET_$(echo "$triple" | tr 'a-z-' 'A-Z_')_RUSTFLAGS=-C target-feature=+crt-static"
+            # static and non-PIE: mips has no static-PIE support (no rcrt1.o),
+            # and the binary stays self contained on OpenWrt
+            export "CARGO_TARGET_$(echo "$triple" | tr 'a-z-' 'A-Z_')_RUSTFLAGS=-C target-feature=+crt-static -C relocation-model=static"
           fi
           extra=""
           [ -n "${{ matrix.build_std }}" ] && extra="-Z build-std=std,panic_abort"
@@ -177,7 +178,9 @@ jobs:
             "https://codeload.github.com/alpinelinux/apk-tools/tar.gz/refs/tags/v${APK_TOOLS_VERSION}"
           tar -xzf /tmp/apk-tools.tar.gz -C /tmp
           src=$(find /tmp -maxdepth 1 -type d -name 'apk-tools-*' | head -1)
-          make -C "$src" -j"$(nproc)" STATIC=y
+          # LUA=no skips the help-text generator, so no lua interpreter is
+          # needed (genhelp.lua has no exec bit in the GitHub tarball)
+          make -C "$src" -j"$(nproc)" STATIC=y LUA=no
           apk="$src/src/apk.static"
           "$apk" version 2>&1 || true
           echo "APK=$apk" >> "$GITHUB_ENV"
