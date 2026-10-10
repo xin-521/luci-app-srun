@@ -49,13 +49,14 @@ apk add --allow-untrusted ./srun-0.6.2-r3.apk ./luci-app-srun-1.0.9-r1.apk
 `AUTH_SERVER_IP` 是**编译期**默认 Portal 地址（`build.rs` 要求），默认 `10.0.0.1`；
 设备上仍可用 `/etc/config/srun` 的 `server` 覆盖。
 
-> Rust 对 5 个目标（aarch64/armv7/arm/x86_64/i686）自带 musl 自包含链接；mips/mipsel
-> 没有发布 std（用 `-Z build-std`），这三个连同 riscv64 用 musl 交叉工具链做 linker
->（先试 more.musl.cc 镜像，再回退 musl.cc）。
+> 5 个目标（aarch64/armv7/arm/x86_64/i686）用 Rust 自带的 musl 自包含链接；linker 一律用
+> 工具链自带的 `rust-lld`：Ubuntu 的 `/usr/bin/ld` 只支持宿主目标，会拒绝
+> `--fix-cortex-a53-843419` 这类目标专属选项（这正是只有 x86_64/i686 能过、其余全挂的原因）。
 >
-> 所有目标统一用工具链自带的 `rust-lld` 链接：Ubuntu 的 `/usr/bin/ld` 只支持宿主目标，
-> 会拒绝 `--fix-cortex-a53-843419` 这类目标专属选项（这正是 x86_64/i686 能过、其余
-> 架构全挂的原因）。
+> mips/mipsel 没发布 std，改用 apt 交叉 gcc（`gcc-mipsel-linux-gnu` / `libc6-dev-*-cross`）
+> 配 `-Z build-std` 并 `+crt-static`；riscv64 同理改走 `riscv64gc-unknown-linux-gnu`。
+>（曾试 musl.cc，但其服务器从 runner 连不上。）这三个包内的二进制为**静态 glibc**，
+> 在 OpenWrt（musl）上同样自包含可运行，代价是体积略大。
 >
 > 另有 [`.github/workflows/openwrt-build.yml`](./.github/workflows/openwrt-build.yml)：把本包放进
 > 真实 OpenWrt 构建树做编译冒烟测试（慢，约 40 分钟/目标）。

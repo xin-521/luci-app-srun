@@ -61,15 +61,16 @@ jobs:
           - { rust: arm-unknown-linux-musleabi,     openwrt: arm_arm926ej-s }
           - { rust: x86_64-unknown-linux-musl,      openwrt: x86_64 }
           - { rust: i686-unknown-linux-musl,        openwrt: i386_pentium4 }
-          # Rust publishes no std for the mips musl targets and the riscv64 musl
-          # target has no self-contained libc, so those three use a musl.cc
-          # toolchain as linker; mips/mipsel additionally build std from source.
-          - { rust: mipsel-unknown-linux-musl,      openwrt: mipsel_24kc,
-              muslcc: mipsel-linux-musl, build_std: true }
-          - { rust: mips-unknown-linux-musl,        openwrt: mips_24kc,
-              muslcc: mips-linux-musl, build_std: true }
-          - { rust: riscv64gc-unknown-linux-musl,   openwrt: riscv64_generic,
-              muslcc: riscv64-linux-musl }
+          # Rust publishes no std for the mips targets (and their musl crt/libc
+          # is not shipped either), so those build std from source; the kernel
+          # side is static glibc from an apt cross toolchain.  musl.cc was
+          # unreachable from the runners, apt is not.
+          - { rust: mipsel-unknown-linux-gnu,      openwrt: mipsel_24kc,
+              xgcc: mipsel-linux-gnu, build_std: true }
+          - { rust: mips-unknown-linux-gnu,        openwrt: mips_24kc,
+              xgcc: mips-linux-gnu, build_std: true }
+          - { rust: riscv64gc-unknown-linux-gnu,   openwrt: riscv64_generic,
+              xgcc: riscv64-linux-gnu }
 
     steps:
       - uses: actions/checkout@v4
@@ -93,31 +94,19 @@ jobs:
             rustup component add rust-src
           fi
 
-      - name: Install musl cross toolchain
-        if: matrix.muslcc
+      - name: Install cross toolchain (apt)
+        if: matrix.xgcc
         run: |
           set -eu
-          name="${{ matrix.muslcc }}"
-          # musl.cc is a single small host and was already unreachable from the
-          # runners once, so try the official more.musl.cc mirror first.
-          for u in \
-            "https://more.musl.cc/11.2.1/x86_64-linux-musl/${name}-cross.tgz" \
-            "https://musl.cc/${name}-cross.tgz"
-          do
-            echo "trying $u"
-            if curl -fSL --retry 3 --retry-delay 5 --connect-timeout 30 --max-time 600 \
-                 -o /tmp/muslcc.tgz "$u"; then
-              echo "got $(wc -c < /tmp/muslcc.tgz) bytes from $u"
-              break
-            fi
-          done
-          [ -s /tmp/muslcc.tgz ] || { echo "no musl toolchain mirror reachable" >&2; exit 1; }
-          tar -xzf /tmp/muslcc.tgz -C /tmp
-          gcc="/tmp/${name}-cross/bin/${name}-gcc"
-          "$gcc" --version | head -1
-          echo "MUSL_GCC=$gcc" >> "$GITHUB_ENV"
+          x="${{ matrix.xgcc }}"
+          arch="${x%-linux-gnu}"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            "gcc-$x" "libc6-dev-${arch}-cross"
+          "${x}-gcc" --version | head -1
+          echo "XGCC=${x}-gcc" >> "$GITHUB_ENV"
 
-      - name: Build static musl binary
+      - name: Build static binary
         working-directory: srun-src
         env:
           RUSTUP_TOOLCHAIN: nightly
@@ -126,13 +115,16 @@ jobs:
           triple="${{ matrix.rust }}"
           # Ubuntu's /usr/bin/ld is built for the host target only and rejects
           # e.g. --fix-cortex-a53-843419, so always link with the toolchain's
-          # bundled rust-lld.  The musl.cc targets override that with their own
-          # gcc, which additionally supplies the crt/libc Rust does not ship
-          # for those triples.
-          linker="${MUSL_GCC:-rust-lld}"
+          # bundled rust-lld - or with the apt cross gcc where one is needed
+          # (it also provides the crt/libc Rust does not ship for those triples).
+          linker="${XGCC:-rust-lld}"
           var="CARGO_TARGET_$(echo "$triple" | tr 'a-z-' 'A-Z_')_LINKER"
           export "$var=$linker"
           echo "$var=$linker"
+          if [ -n "${XGCC:-}" ]; then
+            # static glibc: the binary stays self contained on OpenWrt
+            export "CARGO_TARGET_$(echo "$triple" | tr 'a-z-' 'A-Z_')_RUSTFLAGS=-C target-feature=+crt-static"
+          fi
           extra=""
           [ -n "${{ matrix.build_std }}" ] && extra="-Z build-std=std,panic_abort"
           # shellcheck disable=SC2086
@@ -162,11 +154,11 @@ jobs:
           - { rust: aarch64-unknown-linux-musl,     openwrt: aarch64_cortex-a53, noarch: true }
           - { rust: armv7-unknown-linux-musleabihf, openwrt: arm_cortex-a7_neon-vfpv4 }
           - { rust: arm-unknown-linux-musleabi,     openwrt: arm_arm926ej-s }
-          - { rust: mipsel-unknown-linux-musl,      openwrt: mipsel_24kc }
-          - { rust: mips-unknown-linux-musl,        openwrt: mips_24kc }
+          - { rust: mipsel-unknown-linux-gnu,      openwrt: mipsel_24kc }
+          - { rust: mips-unknown-linux-gnu,        openwrt: mips_24kc }
           - { rust: x86_64-unknown-linux-musl,      openwrt: x86_64 }
           - { rust: i686-unknown-linux-musl,        openwrt: i386_pentium4 }
-          - { rust: riscv64gc-unknown-linux-musl,   openwrt: riscv64_generic }
+          - { rust: riscv64gc-unknown-linux-gnu,   openwrt: riscv64_generic }
 
     steps:
       - uses: actions/checkout@v4
@@ -179,11 +171,14 @@ jobs:
 
       - name: Build apk-tools (static)
         run: |
-          url="https://gitlab.alpinelinux.org/alpine/apk-tools/-/archive/v${APK_TOOLS_VERSION}/apk-tools-v${APK_TOOLS_VERSION}.tar.gz"
-          curl -sSLo /tmp/apk-tools.tar.gz "$url"
+          # gitlab.alpinelinux.org archive endpoint served a non-gzip body, the
+          # GitHub mirror is a plain codeload tarball that always unpacks
+          curl -sSLo /tmp/apk-tools.tar.gz \
+            "https://codeload.github.com/alpinelinux/apk-tools/tar.gz/refs/tags/v${APK_TOOLS_VERSION}"
           tar -xzf /tmp/apk-tools.tar.gz -C /tmp
-          make -C "/tmp/apk-tools-v${APK_TOOLS_VERSION}" -j"$(nproc)" STATIC=y
-          apk="/tmp/apk-tools-v${APK_TOOLS_VERSION}/src/apk.static"
+          src=$(find /tmp -maxdepth 1 -type d -name 'apk-tools-*' | head -1)
+          make -C "$src" -j"$(nproc)" STATIC=y
+          apk="$src/src/apk.static"
           "$apk" version 2>&1 || true
           echo "APK=$apk" >> "$GITHUB_ENV"
 
