@@ -7,12 +7,21 @@
 include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=LuCI support for SRun/深澜 portal authentication
+LUCI_DESCRIPTION:=LuCI app for the srun/深澜 campus portal client: account management, per-account runtime config, and live status/log pages.
+LUCI_MAINTAINER:=zeroxin <zeroxin1936999453@zohomail.com>
 LUCI_DEPENDS:=+luci-base +srun
 LUCI_PKGARCH:=all
 LUCI_URL:=https://github.com/xin-521/luci-app-srun.git
 
 PKG_LICENSE:=Apache-2.0
 PKG_MAINTAINER:=zeroxin <zeroxin1936999453@zohomail.com>
+
+# luci.mk derives the package VERSION from PKG_VERSION-PKG_RELEASE (and falls
+# back to the feed snapshot version when unset), and MAINTAINER only from
+# LUCI_MAINTAINER. Pin the version so a buildroot/feed build produces the same
+# version as the released dist/ apks. Keep in sync with scripts/build-apk.sh.
+PKG_VERSION:=1.0.9
+PKG_RELEASE:=1
 
 # The ubus object luci.srun is a plain shell rpcd plugin; restart rpcd on
 # install so it is picked up without a reboot. Defining postinst replaces the
