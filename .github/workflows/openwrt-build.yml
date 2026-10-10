@@ -40,32 +40,38 @@ jobs:
             luci: master
             pkgfeed: "https://git.openwrt.org/feed/packages.git"
             target: "x86/64"
+            id: x86_64
             pkgfmt: apk
           - openwrt: master
             luci: master
             pkgfeed: "https://git.openwrt.org/feed/packages.git"
             target: "mediatek/filogic"
+            id: mediatek_filogic
             pkgfmt: apk
           - openwrt: master
             luci: master
             pkgfeed: "https://git.openwrt.org/feed/packages.git"
             target: "ramips/mt7621"
+            id: ramips_mt7621
             pkgfmt: apk
           # OpenWrt 24.10 (stable) still uses opkg -> .ipk
           - openwrt: openwrt-24.10
             luci: openwrt-24.10
             pkgfeed: "https://git.openwrt.org/feed/packages.git;openwrt-24.10"
             target: "x86/64"
+            id: x86_64
             pkgfmt: ipk
           - openwrt: openwrt-24.10
             luci: openwrt-24.10
             pkgfeed: "https://git.openwrt.org/feed/packages.git;openwrt-24.10"
             target: "mediatek/filogic"
+            id: mediatek_filogic
             pkgfmt: ipk
           - openwrt: openwrt-24.10
             luci: openwrt-24.10
             pkgfeed: "https://git.openwrt.org/feed/packages.git;openwrt-24.10"
             target: "ramips/mt7621"
+            id: ramips_mt7621
             pkgfmt: ipk
 
     steps:
@@ -189,5 +195,6 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: luci-app-srun-${{ matrix.pkgfmt }}-${{ matrix.target }}
+          # a "/" in the target is not a valid upload-artifact name, use the id
+          name: luci-app-srun-${{ matrix.pkgfmt }}-${{ matrix.id }}
           path: out/
